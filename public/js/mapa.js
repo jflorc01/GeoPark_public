@@ -1,13 +1,13 @@
-// Inicializamos el mapa centrado en León
+// Inicializar el mapa centrado en León
 const map = L.map("map").setView([42.598, -5.577], 14);
 
-// Cargamos los tiles del mapa (OpenStreetMap)
+// Cargar los tiles del mapa (OpenStreetMap)
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution:
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
 
-// Array con los sectores y sus coordenadas
+// Array con todos los sectores y sus coordenadas
 const sectores = [
   {
     nombre: "1 - Sector Ayuntamiento",
@@ -293,7 +293,14 @@ function obtenerColor(ocupacion) {
   return "green";
 }
 
-// Diccionario de sectores
+// Función para que los minutos solo sean 0, 15, 30 o 45
+function redondearMinutos(mins){
+  if (mins < 15) return 0;
+  if (mins < 30) return 15;
+  if (mins < 45) return 30;
+  return 45;
+}
+
 const sectorMapping = sectorPoligonos = {
   1: "1 - Sector Ayuntamiento",
   2: "2 - Sector Cortes Leonesas",
@@ -332,12 +339,20 @@ document.getElementById("btnEnviar").addEventListener("click", () => {
   const horaSeleccionada = parseInt(
     document.getElementById("horaSelect").value
   ); // Convertimos a número
-  console.log(`⏳ Hora seleccionada: ${horaSeleccionada}`);
+
+  const minSeleccionados = parseInt(
+    document.getElementById("horaSelect").value.split(":")[1]
+  );
+  console.log(`Hora seleccionada: ${horaSeleccionada}`);
+  console.log(`Minutos seleccionados: ${minSeleccionados}`);
+
+  const minsRedondeados = redondearMinutos(minSeleccionados)
+  console.log(`Hora a buscar: ${horaSeleccionada}:${minsRedondeados}`)
 
   fetch("../../datos/unDia.json")
     .then((response) => response.json())
     .then((data) => {
-      console.log("📂 JSON cargado:", data); // Verificar que el JSON carga bien
+      console.log("JSON cargado:", data); // Verificar que el JSON carga bien
       let horaEncontrada = false;
       data.forEach((sectorData) => {
         console.log(
@@ -346,7 +361,7 @@ document.getElementById("btnEnviar").addEventListener("click", () => {
           } --- (${typeof horaSeleccionada}) ${horaSeleccionada}`
         );
 
-        if (parseInt(sectorData.hour) === horaSeleccionada) {
+        if ((parseInt(sectorData.hour) === horaSeleccionada) && (parseInt(sectorData.minute) == minsRedondeados)) {
           horaEncontrada = true;
           const sectorNombre =
             sectorPoligonos[sectorMapping[sectorData.sector]]; // Mapeo correcto
@@ -356,7 +371,7 @@ document.getElementById("btnEnviar").addEventListener("click", () => {
             const color = obtenerColor(ocupacion);
 
             console.log(
-              `🎨 Cambiando color de ${
+              `Cambiando color de ${
                 sectorMapping[sectorData.sector]
               } a ${color}`
             );
@@ -378,7 +393,7 @@ document.getElementById("btnEnviar").addEventListener("click", () => {
 
       if (!horaEncontrada) {
         console.log(
-          "⏳ Hora no encontrada, pintando todos los sectores de azul"
+          "Hora no encontrada, pintando todos los sectores de azul"
         );
         Swal.fire({
           icon: "warning",
@@ -398,5 +413,5 @@ document.getElementById("btnEnviar").addEventListener("click", () => {
         }
       }
     })
-    .catch((error) => console.error("❌ Error cargando JSON:", error));
+    .catch((error) => console.error("[!] Error cargando JSON:", error));
 });
