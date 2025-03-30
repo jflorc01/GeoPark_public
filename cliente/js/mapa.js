@@ -293,14 +293,6 @@ function obtenerColor(ocupacion) {
   return "green";
 }
 
-// Función para que los minutos solo sean 0, 15, 30 o 45
-function redondearMinutos(mins){
-  if (mins < 15) return 0;
-  if (mins < 30) return 15;
-  if (mins < 45) return 30;
-  return 45;
-}
-
 const sectorMapping = sectorPoligonos = {
   1: "1 - Sector Ayuntamiento",
   2: "2 - Sector Cortes Leonesas",
@@ -320,6 +312,15 @@ const sectorMapping = sectorPoligonos = {
   16: "16 - Sector Maestro Nicolás",
   17: "17 - Sector Santa Ana",
 };
+
+// Función para que los minutos solo sean 0, 15, 30 o 45
+function redondearMinutos(mins){
+  if (mins < 15) return 0;
+  if (mins < 30) return 15;
+  if (mins < 45) return 30;
+  return 45;
+}
+
 
 // Dibujar los sectores en el mapa
 sectores.forEach((sector) => {
@@ -343,75 +344,84 @@ document.getElementById("btnEnviar").addEventListener("click", () => {
   const minSeleccionados = parseInt(
     document.getElementById("horaSelect").value.split(":")[1]
   );
+
+  const fecha = document.getElementById("fechaSelect").value.split("-");
+  const ano = fecha[0]
+  const mes = fecha[1]
+  const dia = fecha[2]
+
   console.log(`Hora seleccionada: ${horaSeleccionada}`);
   console.log(`Minutos seleccionados: ${minSeleccionados}`);
-
+  console.log(`Fecha seleccionada: ${dia}/${mes}/${ano}`);
   const minsRedondeados = redondearMinutos(minSeleccionados)
   console.log(`Hora a buscar: ${horaSeleccionada}:${minsRedondeados}`)
 
-  fetch("../../datos/unDia.json")
-    .then((response) => response.json())
-    .then((data) => {
-      console.log("JSON cargado:", data); // Verificar que el JSON carga bien
-      let horaEncontrada = false;
-      data.forEach((sectorData) => {
-        console.log(
-          `(${typeof sectorData.hour}) ${
-            sectorData.hour
-          } --- (${typeof horaSeleccionada}) ${horaSeleccionada}`
-        );
-
-        if ((parseInt(sectorData.hour) === horaSeleccionada) && (parseInt(sectorData.minute) == minsRedondeados)) {
-          horaEncontrada = true;
-          const sectorNombre =
-            sectorPoligonos[sectorMapping[sectorData.sector]]; // Mapeo correcto
-
-          if (sectorNombre) {
-            const ocupacion = parseFloat(sectorData.TDO);
-            const color = obtenerColor(ocupacion);
-
-            console.log(
-              `Cambiando color de ${
-                sectorMapping[sectorData.sector]
-              } a ${color}`
-            );
-
-            // Actualizar el polígono existente
-            sectorNombre.setStyle({ fillColor: color });
-
-            // Actualizar el popup con la nueva ocupación
-            sectorNombre.bindPopup(
-              `${sectorMapping[sectorData.sector]}<br>Ocupación: ${ocupacion}%`
-            );
-          } else {
-            console.warn(
-              `⚠️ Sector no encontrado en sectorPoligonos: ${sectorData.sector}`
-            );
-          }
-        }
-      });
-
-      if (!horaEncontrada) {
-        console.log(
-          "Hora no encontrada, pintando todos los sectores de azul"
-        );
-        Swal.fire({
-          icon: "warning",
-          title: "Oops...",
-          text: "En estos momentos no hay servicio de la ORA",
-          footer:
-            "Seleccione otra hora válida (10:00 - 14:00 y 16:00 - 20:00).",
-        });
-        for (const sector in sectorPoligonos) {
-          if (sectorPoligonos.hasOwnProperty(sector)) {
-            const poligono = sectorPoligonos[sector];
-            if (typeof poligono.setStyle === "function") {
-              poligono.setStyle({ fillColor: "blue" });
-              poligono.bindPopup(`${sector}<br>Ocupación: NO DISPONIBLE`);
-            }
-          }
-        }
-      }
-    })
-    .catch((error) => console.error("[!] Error cargando JSON:", error));
+  obtenerDatosPorHora(horaSeleccionada, minSeleccionados, dia, mes, ano);
 });
+
+// Función para obtener datos de la API
+async function obtenerDatosPorHora(hora, mins, dia, mes, ano) {
+  try {
+    
+    let horaEncontrada = false;
+
+    const minsRedondeados = redondearMinutos(mins)
+
+    // Consultar datos para cada sector
+    let cont = 1;
+    for (const sectorId in sectorMapping) {
+      const response = await fetch(
+        `http://localhost:3001/api/tdo?sector=${cont}&day=${dia}&month=${mes}&year=${ano}&hour=${hora}&minute=${minsRedondeados}`
+      );
+      cont++;
+      if (!response.ok) break;
+
+      const sectorData = await response.json();
+      horaEncontrada = true;
+
+      const sectorNombre = sectorPoligonos[sectorMapping[sectorId]];
+      if (sectorNombre) {
+        const ocupacion = sectorData.ocupacion;
+        const color = obtenerColor(parseFloat(ocupacion));
+
+        console.log(`Actualizando ${sectorMapping[sectorId]} a ${color}`);
+        
+        sectorNombre.setStyle({ fillColor: color });
+        sectorNombre.bindPopup(
+          `${sectorMapping[sectorId]}<br>Ocupación: ${ocupacion}%`
+        );
+      }
+    }
+    cont = 1
+
+    if (!horaEncontrada) {
+      mostrarErrorServicioNoDisponible();
+    }
+
+  } catch (error) {
+    console.error("[!] Error accediendo a la API:", error);
+    mostrarErrorServicioNoDisponible();
+  }
+}
+
+// Función para manejar el caso de no disponibilidad
+function mostrarErrorServicioNoDisponible() {
+  Swal.fire({
+    icon: "warning",
+    title: "Oops...",
+    text: "En estos momentos no hay servicio de la ORA",
+    footer: "Seleccione otra fecha y hora válidas (Laborables: 10:00 - 14:00 y 16:00 - 20:00).",
+  });
+  
+  // Resetear todos los sectores a azul
+  for (const sector in sectorPoligonos) {
+    if (sectorPoligonos.hasOwnProperty(sector)) {
+      const poligono = sectorPoligonos[sector];
+      if (typeof poligono.setStyle === "function") {
+        poligono.setStyle({ fillColor: "blue" });
+        poligono.bindPopup(`${sector}<br>Ocupación: NO DISPONIBLE`);
+      }
+    }
+  }
+}
+

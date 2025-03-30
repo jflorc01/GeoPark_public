@@ -1,0 +1,31 @@
+{
+  "name": "geopark_public",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node servidor/server.js",
+    "dev": "nodemon servidor/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jflorc01/GeoPark_public.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/jflorc01/GeoPark_public/issues"
+  },
+  "homepage": "https://github.com/jflorc01/GeoPark_public#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.13.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
